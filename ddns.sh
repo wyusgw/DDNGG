@@ -15,7 +15,7 @@ cop_info(){
 clear
 current_datetime=$(date +"%Y-%m-%d %H:%M:%S")
 echo -e "${GREEN}######################################
-#      ${RED}   DDNS 一键脚本 v2.3         ${GREEN}#
+#      ${RED}   DDNS 一键脚本 v1.6         ${GREEN}#
 #             作者: ${YELLOW}小吃             ${GREEN}#
 #       ${GREEN}${current_datetime}        ${GREEN}#
 ######################################${NC}"
@@ -315,6 +315,8 @@ check_ddns_status() {
 
 # 后续操作
 go_ahead(){
+    # 清屏并显示选项菜单
+    clear
     echo -e "${Tip}选择一个选项：
   ${GREEN}0${NC}：退出
   ${GREEN}1${NC}：重启 DDNS
@@ -324,6 +326,19 @@ go_ahead(){
   ${GREEN}5${NC}：修改 Cloudflare Api
   ${GREEN}6${NC}：配置 Telegram 通知
   ${GREEN}7${NC}：更改 DDNS 运行时间"  # 添加新选项
+    echo
+    
+    # 假设此变量用来表示 DDNS 是否已安装与启动状态
+    ddns_installed=true  # 或根据实际状态获取
+    ddns_started=true    # 或根据实际状态获取
+
+    # 如果 DDNS 已安装且已启动，输出状态信息
+    if $ddns_installed && $ddns_started; then
+        echo -e "${GREEN}DDNS：已安装${NC}    ${GREEN}已启动${NC}"
+    else
+        echo -e "${RED}DDNS：未安装或未启动${NC}"
+    fi
+
     echo
     read -p "选项: " option
     until [[ "$option" =~ ^[0-7]$ ]]; do  # 更新有效选项范围
