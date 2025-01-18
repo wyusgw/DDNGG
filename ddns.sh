@@ -11,15 +11,13 @@ Info="${GREEN}[信息]${NC}"
 Error="${RED}[错误]${NC}"
 Tip="${YELLOW}[提示]${NC}"
 
-# 获取当前日期时间
-current_datetime=$(date "+%Y-%m-%d %H:%M")
-
 cop_info(){
 clear
+current_datetime=$(date +"%Y-%m-%d %H:%M:%S")
 echo -e "${GREEN}######################################
-#      ${RED}   DDNS 一键脚本 v1.6         ${GREEN}#
+#      ${RED}   DDNS 一键脚本 v2.3         ${GREEN}#
 #             作者: ${YELLOW}小吃             ${GREEN}#
-#     ${GREEN}日期时间: ${current_datetime}   #
+#       ${GREEN}${current_datetime}        ${GREEN}#
 ######################################${NC}"
 echo
 }
@@ -30,9 +28,9 @@ if ! grep -qiE "debian|ubuntu|alpine" /etc/os-release; then
     exit 1
 fi
 
-# 检查是否为 root 用户
+# 检查是否为root用户
 if [[ $(whoami) != "root" ]]; then
-    echo -e "${Error}请以 root 身份执行该脚本！"
+    echo -e "${Error}请以root身份执行该脚本！"
     exit 1
 fi
 
@@ -58,10 +56,6 @@ check_curl() {
             fi
         fi
     fi
-}
-
-# 执行脚本信息输出
-cop_info
 
     # 仅在 Alpine 系统上检查是否为 GNU 版本的 grep，如果不是，则安装 GNU grep
     if grep -qiE "alpine" /etc/os-release; then
@@ -331,15 +325,12 @@ go_ahead(){
   ${GREEN}6${NC}：配置 Telegram 通知
   ${GREEN}7${NC}：更改 DDNS 运行时间"  # 添加新选项
     echo
-    echo -e "${Info}DDNS：${GREEN}已安装${NC} 并 ${GREEN}已启动${NC}"
-    echo
     read -p "选项: " option
     until [[ "$option" =~ ^[0-7]$ ]]; do  # 更新有效选项范围
         echo -e "${Error}请输入正确的数字 [0-7]"
         echo
         exit 1
     done
-
     case "$option" in
         0)
             exit 1
@@ -393,8 +384,39 @@ go_ahead(){
             sleep 2
             check_ddns_install
         ;;
-    esac  # 结束 case 语句
-}  # 结束 go_ahead 函数
+    esac
+}
+
+# 设置Cloudflare Api
+set_cloudflare_api(){
+    echo -e "${Tip}开始配置CloudFlare API..."
+    echo
+
+    echo -e "${Tip}请输入您的Cloudflare邮箱"
+    read -rp "邮箱: " EMail
+    if [ -z "$EMail" ]; then
+        echo -e "${Error}未输入邮箱，无法执行操作！"
+        exit 1
+    else
+        EMAIL="$EMail"
+    fi
+    echo -e "${Info}你的邮箱：${RED_ground}${EMAIL}${NC}"
+    echo
+
+    echo -e "${Tip}请输入您的Cloudflare API密钥"
+    read -rp "密钥: " Api_Key
+    if [ -z "Api_Key" ]; then
+        echo -e "${Error}未输入密钥，无法执行操作！"
+        exit 1
+    else
+        API_KEY="$Api_Key"
+    fi
+    echo -e "${Info}你的密钥：${RED_ground}${API_KEY}${NC}"
+    echo
+
+    sed -i 's/^#\?Email=".*"/Email="'"${EMAIL}"'"/g' /etc/DDNS/.config
+    sed -i 's/^#\?Api_key=".*"/Api_key="'"${API_KEY}"'"/g' /etc/DDNS/.config
+}
 
 # 设置解析的域名
 set_domain() {
