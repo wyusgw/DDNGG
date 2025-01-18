@@ -327,25 +327,15 @@ go_ahead(){
   ${GREEN}6${NC}：配置 Telegram 通知
   ${GREEN}7${NC}：更改 DDNS 运行时间"  # 添加新选项
     echo
-    
-    # 假设此变量用来表示 DDNS 是否已安装与启动状态
-    ddns_installed=true  # 或根据实际状态获取
-    ddns_started=true    # 或根据实际状态获取
 
-    # 如果 DDNS 已安装且已启动，输出状态信息
-    if $ddns_installed && $ddns_started; then
-        echo -e "${GREEN}DDNS：已安装${NC}    ${GREEN}已启动${NC}"
-    else
-        echo -e "${RED}DDNS：未安装或未启动${NC}"
-    fi
-
-    echo
+    # 读取用户选择的选项
     read -p "选项: " option
     until [[ "$option" =~ ^[0-7]$ ]]; do  # 更新有效选项范围
         echo -e "${Error}请输入正确的数字 [0-7]"
         echo
         exit 1
     done
+
     case "$option" in
         0)
             exit 1
@@ -400,37 +390,18 @@ go_ahead(){
             check_ddns_install
         ;;
     esac
-}
 
-# 设置Cloudflare Api
-set_cloudflare_api(){
-    echo -e "${Tip}开始配置CloudFlare API..."
-    echo
+    # DDNS 状态信息输出（放在更改 DDNS 运行时间下面）
+    ddns_installed=true  # 假设已安装，实际应根据状态判断
+    ddns_started=true    # 假设已启动，实际应根据状态判断
 
-    echo -e "${Tip}请输入您的Cloudflare邮箱"
-    read -rp "邮箱: " EMail
-    if [ -z "$EMail" ]; then
-        echo -e "${Error}未输入邮箱，无法执行操作！"
-        exit 1
+    if $ddns_installed && $ddns_started; then
+        echo -e "${GREEN}DDNS：已安装 并 已启动${NC}"
     else
-        EMAIL="$EMail"
+        echo -e "${RED}DDNS：未安装或未启动${NC}"
     fi
-    echo -e "${Info}你的邮箱：${RED_ground}${EMAIL}${NC}"
-    echo
 
-    echo -e "${Tip}请输入您的Cloudflare API密钥"
-    read -rp "密钥: " Api_Key
-    if [ -z "Api_Key" ]; then
-        echo -e "${Error}未输入密钥，无法执行操作！"
-        exit 1
-    else
-        API_KEY="$Api_Key"
-    fi
-    echo -e "${Info}你的密钥：${RED_ground}${API_KEY}${NC}"
     echo
-
-    sed -i 's/^#\?Email=".*"/Email="'"${EMAIL}"'"/g' /etc/DDNS/.config
-    sed -i 's/^#\?Api_key=".*"/Api_key="'"${API_KEY}"'"/g' /etc/DDNS/.config
 }
 
 # 设置解析的域名
