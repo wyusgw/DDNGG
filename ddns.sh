@@ -13,13 +13,64 @@ Tip="${YELLOW}[提示]${NC}"
 
 cop_info(){
 clear
-current_datetime=$(date +"%Y-%m-%d %H:%M:%S")
-echo -e "${GREEN}######################################
-#      ${RED}   DDNS v1.8         ${GREEN}#
-#             作者: ${YELLOW}小吃             ${GREEN}#
-#       ${GREEN}${current_datetime}        ${GREEN}#
-######################################${NC}"
+echo -e "${GREEN}##################################
+#      DDNS 一键脚本 v1.8                 #
+#            作者: 小吃                     #
+#         $(date '+%Y-%m-%d %H:%M:%S')    #
+##################################${NC}"
 echo
+}
+
+# 检查系统是否为 Debian、Ubuntu 或 Alpine
+if ! grep -qiE "debian|ubuntu|alpine" /etc/os-release; then
+    echo -e "${RED}本脚本仅支持 Debian、Ubuntu 或 Alpine 系统，请在这些系统上运行。${NC}"
+    exit 1
+fi
+
+# 检查是否为root用户
+if [[ $(whoami) != "root" ]]; then
+    echo -e "${Error}请以root身份执行该脚本！"
+    exit 1
+fi
+
+# 检查是否安装 curl 和 GNU grep（仅 Alpine），如果没有安装，则安装它们
+check_curl() {
+    if ! command -v curl &>/dev/null; then
+        echo -e "${YELLOW}未检测到 curl，正在安装 curl...${NC}"
+
+        # 根据不同的系统类型选择安装命令
+        if grep -qiE "debian|ubuntu" /etc/os-release; then
+            apt update
+            apt install -y curl
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}在 Debian/Ubuntu 上安装 curl 失败，请手动安装后重新运行脚本。${NC}"
+                exit 1
+            fi
+        elif grep -qiE "alpine" /etc/os-release; then
+            apk update
+            apk add curl
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}在 Alpine 上安装 curl 失败，请手动安装后重新运行脚本。${NC}"
+                exit 1
+            fi
+        fi
+    fi
+
+    # 仅在 Alpine 系统上检查是否为 GNU 版本的 grep，如果不是，则安装 GNU grep
+    if grep -qiE "alpine" /etc/os-release; then
+        if ! grep --version 2>/dev/null | grep -q "GNU"; then
+            echo -e "${YELLOW}当前 grep 不是 GNU 版本，正在安装 GNU grep...${NC}"
+            
+            apk update
+            apk add grep
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}在 Alpine 上安装 GNU grep 失败，请手动安装后重新运行脚本。${NC}"
+                exit 1
+            fi
+        else
+            echo -e "${GREEN}GNU grep 已经安装。${NC}"
+        fi
+    fi
 }
 
 # 开始安装DDNS
