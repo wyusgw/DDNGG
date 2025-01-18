@@ -367,6 +367,53 @@ go_ahead(){
             sleep 2
             check_ddns_install
         ;;
+go_ahead(){
+    echo -e "${Tip}选择一个选项：
+  ${GREEN}0${NC}：退出
+  ${GREEN}1${NC}：重启 DDNS
+  ${GREEN}2${NC}：停止 DDNS
+  ${GREEN}4${NC}：修改要解析的域名
+  ${GREEN}5${NC}：修改 Cloudflare Api
+  ${GREEN}6${NC}：配置 Telegram 通知
+  ${GREEN}7${NC}：更改 DDNS 运行时间
+  ${GREEN}3${NC}：${RED}卸载 DDNS${NC}"  # 调整了选项顺序
+    echo
+    echo -e "${Info}DDNS：${GREEN}已安装${NC} 并 ${GREEN}已启动${NC}"
+    echo
+    read -p "选项: " option
+    until [[ "$option" =~ ^[0-7]$ ]]; do  # 更新有效选项范围
+        echo -e "${Error}请输入正确的数字 [0-7]"
+        echo
+        exit 1
+    done
+    case "$option" in
+        0)
+            exit 1
+        ;;
+        1)
+            restart_ddns
+        ;;
+        2)
+            stop_ddns
+        ;;
+        3)
+            if grep -qiE "alpine" /etc/os-release; then
+                stop_ddns
+                rm -rf /etc/DDNS /usr/bin/ddns
+            else
+                systemctl stop ddns.service >/dev/null 2>&1
+                systemctl stop ddns.timer >/dev/null 2>&1
+                rm -rf /etc/systemd/system/ddns.service /etc/systemd/system/ddns.timer /etc/DDNS /usr/bin/ddns
+            fi
+            echo -e "${Info}DDNS 已卸载！"
+            echo
+        ;;
+        4)
+            set_domain
+            restart_ddns
+            sleep 2
+            check_ddns_install
+        ;;
         5)
             set_cloudflare_api
             if grep -qiE "alpine" /etc/os-release; then
@@ -392,8 +439,82 @@ go_ahead(){
             sleep 2
             check_ddns_install
         ;;
-    esac
-}
+    esac  # 结束 case 语句
+}  # 结束 go_ahead 函数
+go_ahead(){
+    echo -e "${Tip}选择一个选项：
+  ${GREEN}0${NC}：退出
+  ${GREEN}1${NC}：重启 DDNS
+  ${GREEN}2${NC}：停止 DDNS
+  ${GREEN}4${NC}：修改要解析的域名
+  ${GREEN}5${NC}：修改 Cloudflare Api
+  ${GREEN}6${NC}：配置 Telegram 通知
+  ${GREEN}7${NC}：更改 DDNS 运行时间
+  ${GREEN}3${NC}：${RED}卸载 DDNS${NC}"  # 调整了选项顺序
+    echo
+    echo -e "${Info}DDNS：${GREEN}已安装${NC} 并 ${GREEN}已启动${NC}"
+    echo
+    read -p "选项: " option
+    until [[ "$option" =~ ^[0-7]$ ]]; do  # 更新有效选项范围
+        echo -e "${Error}请输入正确的数字 [0-7]"
+        echo
+        exit 1
+    done
+    case "$option" in
+        0)
+            exit 1
+        ;;
+        1)
+            restart_ddns
+        ;;
+        2)
+            stop_ddns
+        ;;
+        3)
+            if grep -qiE "alpine" /etc/os-release; then
+                stop_ddns
+                rm -rf /etc/DDNS /usr/bin/ddns
+            else
+                systemctl stop ddns.service >/dev/null 2>&1
+                systemctl stop ddns.timer >/dev/null 2>&1
+                rm -rf /etc/systemd/system/ddns.service /etc/systemd/system/ddns.timer /etc/DDNS /usr/bin/ddns
+            fi
+            echo -e "${Info}DDNS 已卸载！"
+            echo
+        ;;
+        4)
+            set_domain
+            restart_ddns
+            sleep 2
+            check_ddns_install
+        ;;
+        5)
+            set_cloudflare_api
+            if grep -qiE "alpine" /etc/os-release; then
+                restart_ddns
+                sleep 2
+            else
+                if [ ! -f "/etc/systemd/system/ddns.service" ] || [ ! -f "/etc/systemd/system/ddns.timer" ]; then
+                    run_ddns
+                    sleep 2
+                else
+                    restart_ddns
+                    sleep 2
+                fi
+            fi
+            check_ddns_install
+        ;;
+        6)
+            set_telegram_settings
+            check_ddns_install
+        ;;
+        7)
+            set_ddns_run_interval  # 调用新函数以更改 DDNS 运行时间
+            sleep 2
+            check_ddns_install
+        ;;
+    esac  # 结束 case 语句
+}  # 结束 go_ahead 函数
 
 # 设置Cloudflare Api
 set_cloudflare_api(){
