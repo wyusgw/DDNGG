@@ -1,110 +1,59 @@
 #!/bin/bash
 
-# Server酱开关，0为关闭，1为开启
-NOTIFICATION=0
-# Server酱API
-SERVERCHAN_KEY='YOUR_SERVERCHAN_KEY'
+# 设置相关变量
+INSTANCE_NAME="ubuntu-1"
+REGION="ap-southeast-1"  # 修改为您的 AWS Lightsail 区域
+STATIC_IP_NAME="MyStaticIP"  # 修改为当前的静态 IP 名称
 
-# 区域作为脚本的第一个参数
-REGION=$1
-# Ping检测次数
-PINGTIMES=5
-
-readonly NOTIFICATION
-readonly SERVERCHAN_KEY
-readonly REGION
-readonly PINGTIMES
-
-# 根据系统定义Ping检测结果关键字
-case $(uname) in
-    "Darwin")
-        CHECK_PING="100.0% packet loss"
-        ;;
-    "Linux")
-        CHECK_PING="100% packet loss"
-        ;;
-    *)
-        echo -e "Unsupported System"
-        exit 1
-        ;;
-esac
-
-echo -e '*****************************************************************'
-echo -e '***************************** START *****************************'
-echo -e '*****************************************************************'
-
-# 主函数
-function main {
-    # 获取静态 IP 列表
-    local ipjson=$(aws lightsail --region "$REGION" get-static-ips)
-    
-    # 获取静态 IP 数量
-    local NUM_IP=$(echo "$ipjson" | jq -r '.staticIps | length')
-    if [[ $NUM_IP -eq 0 ]]; then
-        echo "No static IPs found in region $REGION."
-        exit 0
-    fi
-
-    # 遍历每个静态 IP
-    for (( i = 0; i < NUM_IP; i++ )); do
-        echo -e "========================= seq $i start ========================="
-        
-        # 获取静态 IP 的各项信息
-        local OLD_IP=$(echo "$ipjson" | jq -r ".staticIps[$i].ipAddress")
-        local INSTANCE_NAME=$(echo "$ipjson" | jq -r ".staticIps[$i].attachedTo")
-        local STATIC_IP_NAME=$(echo "$ipjson" | jq -r ".staticIps[$i].name")
-        
-        echo -e "1. Checking VPS with IP: $OLD_IP"
-        
-        # 检测 IP 是否存活
-        ping -c "$PINGTIMES" "$OLD_IP" > "temp.$OLD_IP.txt" 2>&1
-        if grep -q "$CHECK_PING" "temp.$OLD_IP.txt"; then
-            echo -e "2. This VPS is dead, process starts"
-            
-            # 删除原静态 IP
-            aws lightsail --region "$REGION" release-static-ip --static-ip-name "$STATIC_IP_NAME"
-            
-            # 新建静态 IP
-            aws lightsail --region "$REGION" allocate-static-ip --static-ip-name "$STATIC_IP_NAME"
-            
-            # 绑定静态 IP
-            aws lightsail --region "$REGION" attach-static-ip --static-ip-name "$STATIC_IP_NAME" --instance-name "$INSTANCE_NAME"
-            
-            # 获取新 IP 地址
-            local instancejson=$(aws lightsail --region "$REGION" get-instance --instance-name "$INSTANCE_NAME")
-            local NEW_IP=$(echo "$instancejson" | jq -r '.instance.publicIpAddress')
-            
-            # 发送通知
-            if [[ $NOTIFICATION -eq 1 ]]; then
-                text="IP地址已更换"
-                desp="您在${REGION}的${INSTANCE_NAME}服务器IP:${OLD_IP}已更换至${NEW_IP}。"
-                notification "${text}" "${desp}"
-            fi
-        else
-            echo -e "2. This IP is alive, nothing happened"
-        fi
-        
-        rm -rf "temp.$OLD_IP.txt"
-    done
+# 获取当前的静态 IP 地址
+get_current_ip() {
+  CURRENT_IP=$(aws lightsail get-static-ips --region $REGION --query "staticIps[?name=='$STATIC_IP_NAME'].ipAddress" --output text)
+  if [ "$CURRENT_IP" == "None" ]; then
+    echo "未找到当前静态 IP，请检查 STATIC_IP_NAME 是否正确。"
+    exit 1
+  fi
+  echo "当前静态 IP: $CURRENT_IP"
 }
 
-# 发送 Server 酱通知
-function notification {
-    local json=$(curl -s "https://sc.ftqq.com/$SERVERCHAN_KEY.send" --data-urlencode "text=$1" --data-urlencode "desp=$2")
-    local errno=$(echo "$json" | jq .errno)
-    local errmsg=$(echo "$json" | jq .errmsg)
-    if [[ $errno -eq 0 ]]; then
-        echo -e 'Notice sent successfully'
-    else
-        echo -e 'Notice send failed'
-        echo -e "Error message: $errmsg"
-    fi
+# 释放当前静态 IP 地址
+release_static_ip() {
+  echo "正在释放当前静态 IP ($CURRENT_IP)..."
+  aws lightsail release-static-ip --static-ip-name $STATIC_IP_NAME --region $REGION
+  if [ $? -ne 0 ]; then
+    echo "释放静态 IP 失败，请检查权限或配置。"
+    exit 1
+  fi
 }
 
-main "$REGION"
+# 分配新的静态 IP 地址
+allocate_new_static_ip() {
+  echo "正在分配新的静态 IP..."
+  NEW_IP=$(aws lightsail allocate-static-ip --region $REGION --query "staticIp.ipAddress" --output text)
+  if [ "$NEW_IP" == "None" ]; then
+    echo "分配新的静态 IP 失败，请检查权限或配置。"
+    exit 1
+  fi
+  echo "新的静态 IP 已分配: $NEW_IP"
+}
 
-echo -e '*****************************************************************'
-echo -e '****************************** END ******************************'
-echo -e '*****************************************************************'
+# 绑定新的静态 IP 到实例
+attach_new_static_ip() {
+  echo "正在将新的静态 IP ($NEW_IP) 绑定到实例..."
+  aws lightsail attach-static-ip --static-ip-name $NEW_IP --instance-name $INSTANCE_NAME --region $REGION
+  if [ $? -ne 0 ]; then
+    echo "绑定新的静态 IP 失败，请检查权限或配置。"
+    exit 1
+  fi
+  echo "新的静态 IP 已成功绑定到实例."
+}
 
-exit 0
+# 主逻辑
+get_current_ip
+release_static_ip
+allocate_new_static_ip
+attach_new_static_ip
+
+# 输出更换后的静态 IP
+echo "静态 IP 已成功更换."
+echo "旧静态 IP: $CURRENT_IP"
+echo "新静态 IP: $NEW_IP"
